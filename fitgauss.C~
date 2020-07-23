@@ -1,0 +1,29 @@
+#include "TFile.h"
+#include "TH2F.h"
+#include <iostream>
+
+void to1d(){
+
+  TFile *file = new TFile("img_0.root", "READ");
+  TH2F *img_raw = (TH2F*)file->Get("image_raw");
+  //img_raw->Draw();
+
+  //std::cout << img_raw->GetXaxis()->GetNbins();
+
+  TH1F *img_1d = new TH1F("img_1d", "img_1d", img_raw->GetXaxis()->GetNbins(),0,img_raw->GetXaxis()->GetNbins());
+
+  for (int i = 0; i < img_raw->GetXaxis()->GetNbins(); i++){
+    int summer = 0;
+    for (int j = 0; j < img_raw->GetYaxis()->GetNbins(); j++){
+      summer = summer + img_raw->GetBin(i,j);
+    }
+
+    //std::cout << summer;
+    img_1d->SetBinContent(i, summer);
+  }
+
+  img_1d->Draw();
+  //img_raw->RebinX(5); img_raw->RebinY(5);
+  //img_raw->Draw("COLZ");
+
+}

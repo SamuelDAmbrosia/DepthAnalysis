@@ -1,0 +1,162 @@
+#include "TFile.h"
+#include "TH2F.h"
+#include "TRandom3.h"
+#include "TTree.h"
+#include "TMath.h"
+#include <iostream>
+
+//distribution 1 is uniform in all variables
+//distribution 2 is the CCD activated in Sep 2013
+//distribution 3 is for surface events, i.e., <20 um from the front and back
+
+void PointDepSim(TString outprefix, Int_t nfiles, Int_t nevents, Double_t emin, Double_t emax, Int_t dist=1, Double_t thickness=0.0675, Double_t pixel_size_x=0.0015, Double_t pixel_size_y=0.0015, Int_t nbinsx=200, Int_t nbinsy=200){
+
+    for(Int_t i=1; i<=nfiles; i++){
+        
+        TString outname = outprefix;
+        if(i<10) outname+="00";
+        else if(i<100) outname+="0";
+        outname += i;
+        outname += ".pds";
+        
+        TFile* f = new TFile(outname,"RECREATE");
+        TTree* sinfo = new TTree("sinfo","sinfo");
+        int simid = 0;
+        sinfo->Branch("simid", &simid, "simid/I");
+        sinfo->Branch("nbins_x", &nbinsx, "nbins_x/I");
+        sinfo->Branch("nbins_y", &nbinsy, "nbins_y/I");
+        sinfo->Branch("bw_x", &pixel_size_x, "bw_x/D");
+        sinfo->Branch("bw_y", &pixel_size_y, "bw_y/D");
+        sinfo->Branch("bw_z", &thickness, "bw_z/D");
+        sinfo->Fill();
+        sinfo->Write();
+        
+        Double_t dep_x, dep_y, dep_z, dep_e;
+        TTree* deposits = new TTree("deposits","deposits");
+        deposits->Branch("dep_x",&dep_x,"dep_x/D");
+        deposits->Branch("dep_y",&dep_y,"dep_y/D");
+        deposits->Branch("dep_z",&dep_z,"dep_z/D");
+        deposits->Branch("dep_e",&dep_e,"dep_e/D");
+        
+        TRandom3 r(0);
+        
+        for(Int_t j=0; j<nevents; j++){
+            
+            Double_t x, y, z;
+            
+            if(dist==1){
+
+	        x = r.Uniform(0,nbinsx*pixel_size_x);
+                y = r.Uniform(0,nbinsy*pixel_size_y);
+                z = r.Uniform(0,thickness);
+
+		std::cout << "x:" << x << " y:" << y << " z:" << z << std::endl;
+		
+            }
+            
+            else if(dist==2){
+                
+                Int_t acty_min = 1100;
+                Int_t acty_max = 3350;
+                
+                if(r.Uniform(0,1)>0.3446)
+                    y = r.Uniform(acty_min,acty_max);
+                
+                else
+                    y = r.Uniform(acty_min,acty_min + (acty_max-acty_min)*TMath::Sqrt(r.Uniform(0,1)));
+                
+                y *= pixel_size_y;
+                x = r.Uniform(0,nbinsx*pixel_size_x);
+                z = r.Uniform(0,thickness);
+            }
+            
+            else if(dist==3){
+                
+                x = r.Uniform(0,nbinsx*pixel_size_x);
+                y = r.Uniform(0,nbinsy*pixel_size_y);
+		
+                //distance from surface
+                z = r.Uniform(0,0.002);
+                if(r.Uniform(0,1)>=0.5)
+                    z = thickness-z;
+            }
+            
+            else{
+            
+                std::cout << "Error: Did not choose valid distribution!" << std::endl;
+                break;
+            }
+            
+            Double_t e = r.Uniform(emin, emax);
+            
+            dep_x = x;
+            dep_y = y;
+            dep_z = z;
+            dep_e = e;
+            deposits->Fill();
+        }
+        
+        deposits->Write();
+        f->Close();
+    }
+}
+
+//second function to simulate event with specific energy and sigma
+
+void PointDepSingle(TString outprefix, Int_t nfiles, Int_t nevents, Double_t ene, Double_t z, Double_t thickness=0.0675, Double_t pixel_size_x=0.0015, Double_t pixel_size_y=0.0015, Int_t nbinsx=200, Int_t nbinsy=200){
+
+    for(Int_t i=1; i<=nfiles; i++){
+        
+        TString outname = outprefix;
+        if(i<10) outname+="00";
+        else if(i<100) outname+="0";
+        outname += i;
+        outname += ".pds";
+        
+        TFile* f = new TFile(outname,"RECREATE");
+        TTree* sinfo = new TTree("sinfo","sinfo");
+        int simid = 0;
+        sinfo->Branch("simid", &simid, "simid/I");
+        sinfo->Branch("nbins_x", &nbinsx, "nbins_x/I");
+        sinfo->Branch("nbins_y", &nbinsy, "nbins_y/I");
+        sinfo->Branch("bw_x", &pixel_size_x, "bw_x/D");
+        sinfo->Branch("bw_y", &pixel_size_y, "bw_y/D");
+        sinfo->Branch("bw_z", &thickness, "bw_z/D");
+        sinfo->Fill();
+        sinfo->Write();
+        
+        Double_t dep_x, dep_y, dep_z, dep_e;
+        TTree* deposits = new TTree("deposits","deposits");
+        deposits->Branch("dep_x",&dep_x,"dep_x/D");
+        deposits->Branch("dep_y",&dep_y,"dep_y/D");
+        deposits->Branch("dep_z",&dep_z,"dep_z/D");
+        deposits->Branch("dep_e",&dep_e,"dep_e/D");
+        
+        TRandom3 r(0);
+	
+        for(Int_t j=0; j<nevents; j++){
+            
+            Double_t y = r.Uniform(0,nbinsy*pixel_size_y);
+            Double_t x = r.Uniform(0,nbinsx*pixel_size_x);
+	    
+            dep_x = x;
+            dep_y = y;
+
+	    //make sure z isnt outside the CCD
+	    
+	    if(z>thickness) z = thickness;
+	    
+	    std::cout << "x:" << x << " y:" << y << " z:" << z << std::endl;
+	    
+            //sigma in pixels, assuming A=234 and b=0.915e-3
+	    
+            dep_z = z;
+            dep_e = ene;
+            deposits->Fill();
+        }
+        
+        deposits->Write();
+        f->Close();
+    }
+}
+
